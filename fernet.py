@@ -1,5 +1,6 @@
 import base64
 import binascii
+import hashlib
 import hmac as HMAC
 import time
 import os
@@ -42,7 +43,7 @@ class Fernet:
     def encrypt(self, data):
         current_time = int(time.time())
         iv = os.urandom(16)
-        self._encrypt_from_parts(data, current_time, iv)
+        return self._encrypt_from_parts(data, current_time, iv)
 
     def _encrypt_from_parts(self, data, current_time, iv):
         encrypter = Encrypter(AESModeOfOperationCBC(self._encryption_key, iv))
@@ -52,14 +53,14 @@ class Fernet:
         basic_parts = (b"\x80" + struct.pack(">Q", current_time)
                        + iv + ciphertext)
 
-        hmac = HMAC.new(self._signing_key, digestmod='sha256')
+        hmac = HMAC.new(self._signing_key, digestmod=hashlib.sha256)
         hmac.update(basic_parts)
 
         return base64.urlsafe_b64encode(basic_parts + hmac.digest())
 
     def decrypt(self, token, ttl=None):
-        if not isinstance(token, bytes):
-            raise TypeError("token must be bytes.")
+        if not isinstance(token, str):
+            raise TypeError("token must be str.")
 
         current_time = int(time.time())
 
@@ -68,7 +69,7 @@ class Fernet:
         except (TypeError, binascii.Error):
             raise InvalidToken
 
-        if not data or data[0] != 0x80:
+        if not data or data[0] != '\x80':
             raise InvalidToken
 
         try:
@@ -82,9 +83,9 @@ class Fernet:
             if current_time + _MAX_CLOCK_SKEW < timestamp:
                 raise InvalidToken
 
-        h = HMAC.new(self._signing_key, digestmod='sha256')
+        h = HMAC.new(self._signing_key, digestmod=hashlib.sha256)
         h.update(data[:-32])
-        if not HMAC.compare_digest(h.digest(), data[-32:]):
+        if h.digest() != data[-32:]:
             raise InvalidToken
 
         iv = data[9:25]
