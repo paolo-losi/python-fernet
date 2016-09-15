@@ -18,4 +18,5 @@ setup(name='fernet',
                    'Programming Language :: Python :: 3.5',
                    'Topic :: Security :: Cryptography',
                    ],
+      zip_safe = True,
       )
